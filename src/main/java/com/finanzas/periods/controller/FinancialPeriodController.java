@@ -2,9 +2,11 @@ package com.finanzas.periods.controller;
 
 import java.util.List;
 
+import com.finanzas.calculator.model.ApartmentSummary;
 import com.finanzas.calculator.model.HistoryPoint;
+import com.finanzas.calculator.model.IncomeSummary;
+import com.finanzas.calculator.model.PeriodOverview;
 import com.finanzas.calculator.model.PeriodRef;
-import com.finanzas.calculator.model.PeriodSummary;
 import com.finanzas.periods.dto.CreatePeriodRequest;
 import com.finanzas.periods.dto.UpdateApartmentGoalRequest;
 import com.finanzas.periods.dto.UpdateIncomeRequest;
@@ -22,6 +24,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Un GET por pantalla. Cada uno devuelve sólo lo que esa pantalla dibuja.
+ */
 @RestController
 @RequestMapping("/api/periods")
 public class FinancialPeriodController {
@@ -38,8 +43,8 @@ public class FinancialPeriodController {
     }
 
     @GetMapping("/latest")
-    public PeriodSummary latest() {
-        return service.latestSummary();
+    public PeriodRef latest() {
+        return service.latestPeriod();
     }
 
     @GetMapping("/history")
@@ -47,37 +52,53 @@ public class FinancialPeriodController {
         return service.history();
     }
 
-    @GetMapping("/{periodId}")
-    public PeriodSummary detail(@PathVariable Long periodId) {
-        return service.summary(periodId);
-    }
-
     @PostMapping
-    public ResponseEntity<PeriodSummary> create(@Valid @RequestBody CreatePeriodRequest request) {
+    public ResponseEntity<PeriodRef> create(@Valid @RequestBody CreatePeriodRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createPeriod(request));
-    }
-
-    @PutMapping("/{periodId}/income")
-    public PeriodSummary updateIncome(@PathVariable Long periodId,
-                                      @Valid @RequestBody UpdateIncomeRequest request) {
-        return service.updateIncome(periodId, request);
-    }
-
-    @PutMapping("/{periodId}/apartment-goal")
-    public PeriodSummary updateApartmentGoal(@PathVariable Long periodId,
-                                             @Valid @RequestBody UpdateApartmentGoalRequest request) {
-        return service.updateApartmentGoal(periodId, request);
-    }
-
-    @PutMapping("/{periodId}/notes")
-    public PeriodSummary updateNotes(@PathVariable Long periodId,
-                                     @Valid @RequestBody UpdateNotesRequest request) {
-        return service.updateNotes(periodId, request.notes());
     }
 
     @DeleteMapping("/{periodId}")
     public ResponseEntity<Void> delete(@PathVariable Long periodId) {
         service.deletePeriod(periodId);
         return ResponseEntity.noContent().build();
+    }
+
+    // --- Resumen --------------------------------------------------------
+
+    @GetMapping("/{periodId}/overview")
+    public PeriodOverview overview(@PathVariable Long periodId) {
+        return service.overview(periodId);
+    }
+
+    @PutMapping("/{periodId}/notes")
+    public PeriodOverview updateNotes(@PathVariable Long periodId,
+                                      @Valid @RequestBody UpdateNotesRequest request) {
+        return service.updateNotes(periodId, request.notes());
+    }
+
+    // --- Ingresos -------------------------------------------------------
+
+    @GetMapping("/{periodId}/income")
+    public IncomeSummary income(@PathVariable Long periodId) {
+        return service.income(periodId);
+    }
+
+    @PutMapping("/{periodId}/income")
+    public IncomeSummary updateIncome(@PathVariable Long periodId,
+                                      @Valid @RequestBody UpdateIncomeRequest request) {
+        return service.updateIncome(periodId, request);
+    }
+
+    // --- Apartamento ----------------------------------------------------
+
+    @GetMapping("/{periodId}/apartment")
+    public ApartmentSummary apartment(@PathVariable Long periodId) {
+        return service.apartment(periodId);
+    }
+
+    @PutMapping("/{periodId}/apartment-goal")
+    public ApartmentSummary updateApartmentGoal(@PathVariable Long periodId,
+                                                @Valid @RequestBody UpdateApartmentGoalRequest request) {
+        return service.updateApartmentGoal(periodId, request);
     }
 }

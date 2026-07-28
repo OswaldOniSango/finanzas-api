@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import com.finanzas.common.Currency;
 import com.finanzas.expenses.model.ExpenseType;
+import com.finanzas.expenses.model.PaymentMethod;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -14,6 +15,7 @@ public record SaveExpenseItemRequest(
         @Size(max = 255) String detail,
         @NotNull @PositiveOrZero BigDecimal amount,
         @NotNull Currency currency,
+        @NotNull PaymentMethod paymentMethod,
         @NotNull ExpenseType expenseType,
         @NotBlank @Size(max = 100) String expenseGroup,
         @Size(max = 500) String note,
