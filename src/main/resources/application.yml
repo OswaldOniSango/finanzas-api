@@ -44,3 +44,18 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:finanzas}
     password: ${SPRING_DATASOURCE_PASSWORD:finanzas}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_MAXIMUM_POOL_SIZE:5}
+  flyway:
+    locations: classpath:db/postgresql
