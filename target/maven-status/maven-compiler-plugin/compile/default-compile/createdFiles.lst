@@ -1,3 +1,4 @@
+com/finanzas/calculator/model/PlanSummary.class
 com/finanzas/cards/controller/CreditCardController.class
 com/finanzas/calculator/service/PlanCalculator.class
 com/finanzas/plan/repository/PlanAllocationRepository.class
@@ -12,6 +13,7 @@ com/finanzas/calculator/model/HistoryPoint.class
 com/finanzas/calculator/model/ExpenseSummary.class
 com/finanzas/periods/service/FinancialPeriodService.class
 com/finanzas/calculator/model/IncomeSummary.class
+com/finanzas/config/PersistenceConfig.class
 com/finanzas/plan/model/PlanStage.class
 com/finanzas/config/WebConfig.class
 com/finanzas/FinanzasApplication.class
@@ -44,10 +46,11 @@ com/finanzas/common/PeriodLabels.class
 com/finanzas/api/ResourceNotFoundException.class
 com/finanzas/calculator/model/CardsSummary.class
 com/finanzas/periods/model/ApartmentGoal.class
+com/finanzas/calculator/model/PeriodOverview.class
+com/finanzas/expenses/model/PaymentMethod.class
 com/finanzas/plan/model/PlanAllocation.class
 com/finanzas/api/ApiErrorResponse.class
 com/finanzas/periods/dto/UpdateIncomeRequest.class
 com/finanzas/calculator/model/CardLine.class
-com/finanzas/calculator/model/PeriodSummary.class
 com/finanzas/plan/dto/SavePlanAllocationRequest.class
 com/finanzas/expenses/dto/SaveExpenseItemRequest.class

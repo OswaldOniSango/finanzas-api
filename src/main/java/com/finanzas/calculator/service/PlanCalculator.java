@@ -17,10 +17,11 @@ import com.finanzas.calculator.model.ExpenseSummary;
 import com.finanzas.calculator.model.GroupTotal;
 import com.finanzas.calculator.model.HistoryPoint;
 import com.finanzas.calculator.model.IncomeSummary;
+import com.finanzas.calculator.model.PeriodOverview;
 import com.finanzas.calculator.model.PeriodRef;
-import com.finanzas.calculator.model.PeriodSummary;
 import com.finanzas.calculator.model.PlanLine;
 import com.finanzas.calculator.model.PlanStageSummary;
+import com.finanzas.calculator.model.PlanSummary;
 import com.finanzas.calculator.model.ProjectionPoint;
 import com.finanzas.cards.model.CreditCard;
 import com.finanzas.common.Currency;
@@ -38,49 +39,108 @@ import org.springframework.stereotype.Service;
  * Reemplaza a las fórmulas del Excel original: recibe únicamente los datos que
  * el usuario carga y deriva todo lo demás. Ningún valor calculado se persiste,
  * así que cambiar el dólar de referencia recalcula el mes entero.
+ *
+ * <p>Cada método público corresponde a una pantalla. Las fórmulas están
+ * encadenadas entre sí — los gastos necesitan el ingreso, el apartamento
+ * necesita los gastos — así que internamente se calcula lo que haga falta;
+ * lo que cambia es cuánto de eso se devuelve.
  */
 @Service
 public class PlanCalculator {
 
-    /** Horizonte de la tabla de proyección: mes 0 hasta mes 36, igual que el Excel. */
+    /** Horizonte de la curva de ahorro: mes 0 hasta mes 36, igual que el Excel. */
     private static final int PROJECTION_MONTHS = 36;
 
-    public PeriodSummary summarize(FinancialPeriod period,
-                                   List<ExpenseItem> expenses,
+    // --- Una porción por pantalla ---------------------------------------
+
+    public IncomeSummary income(FinancialPeriod period) {
+        return summarizeIncome(period.income());
+    }
+
+    public PlanSummary plan(FinancialPeriod period, List<PlanAllocation> allocations) {
+        IncomeSummary income = income(period);
+        return new PlanSummary(
+                income.conservativeBaseUsd(),
+                income.referenceRate(),
+                summarizePlan(allocations, income));
+    }
+
+    public ExpenseSummary expenses(FinancialPeriod period,
+                                   List<ExpenseItem> items,
+                                   List<PlanAllocation> allocations) {
+        return summarizeExpenses(items, income(period), allocations);
+    }
+
+    public CardsSummary cards(FinancialPeriod period, List<CreditCard> cards) {
+        return summarizeCards(cards, income(period).referenceRate());
+    }
+
+    public ApartmentSummary apartment(FinancialPeriod period,
+                                      List<ExpenseItem> items,
+                                      List<PlanAllocation> allocations) {
+        IncomeSummary income = income(period);
+        return summarizeApartment(period, allocations, income, summarizeExpenses(items, income, allocations));
+    }
+
+    public PeriodOverview overview(FinancialPeriod period,
+                                   List<ExpenseItem> items,
                                    List<PlanAllocation> allocations,
                                    List<CreditCard> cards) {
 
-        IncomeSummary income = summarizeIncome(period.income());
-        List<PlanStageSummary> plan = summarizePlan(allocations, income);
-        ExpenseSummary expenseSummary = summarizeExpenses(expenses, income, allocations);
+        IncomeSummary income = income(period);
+        ExpenseSummary expenses = summarizeExpenses(items, income, allocations);
         CardsSummary cardsSummary = summarizeCards(cards, income.referenceRate());
-        ApartmentSummary apartment = summarizeApartment(period, allocations, income, expenseSummary);
+        ApartmentSummary apartment = summarizeApartment(period, allocations, income, expenses);
 
-        PeriodRef ref = new PeriodRef(
+        return new PeriodOverview(
+                periodRef(period),
+                period.notes(),
+                income.referenceRate(),
+                income.totalIncomeUsd(),
+                income.conservativeBaseUsd(),
+                expenses.totalUsd(),
+                expenses.lines().size(),
+                expenses.availableAfterExpensesUsd(),
+                expenses.committedIncomeRatio(),
+                expenses.targetBudgetUsd(),
+                expenses.withinBudget(),
+                cardsSummary.totalBalanceUsd(),
+                cardsSummary.estimatedPayoffMonths(),
+                apartment);
+    }
+
+    public HistoryPoint historyPoint(FinancialPeriod period,
+                                     List<ExpenseItem> items,
+                                     List<PlanAllocation> allocations,
+                                     List<CreditCard> cards) {
+
+        IncomeSummary income = income(period);
+        ExpenseSummary expenses = summarizeExpenses(items, income, allocations);
+        ApartmentSummary apartment = summarizeApartment(period, allocations, income, expenses);
+
+        return new HistoryPoint(
+                period.id(),
+                period.periodYear(),
+                period.periodMonth(),
+                PeriodLabels.shortLabel(period.yearMonth()),
+                income.referenceRate(),
+                income.totalIncomeUsd(),
+                income.conservativeBaseUsd(),
+                expenses.totalUsd(),
+                expenses.availableAfterExpensesUsd(),
+                expenses.committedIncomeRatio(),
+                apartment.monthlySavingUsd(),
+                apartment.currentSavingsUsd(),
+                apartment.goalProgress(),
+                summarizeCards(cards, income.referenceRate()).totalBalanceUsd());
+    }
+
+    public PeriodRef periodRef(FinancialPeriod period) {
+        return new PeriodRef(
                 period.id(),
                 period.periodYear(),
                 period.periodMonth(),
                 PeriodLabels.full(period.yearMonth()));
-
-        return new PeriodSummary(ref, period.notes(), income, expenseSummary, plan, cardsSummary, apartment);
-    }
-
-    public HistoryPoint toHistoryPoint(PeriodSummary summary) {
-        return new HistoryPoint(
-                summary.period().id(),
-                summary.period().year(),
-                summary.period().month(),
-                PeriodLabels.shortLabel(YearMonth.of(summary.period().year(), summary.period().month())),
-                summary.income().referenceRate(),
-                summary.income().totalIncomeUsd(),
-                summary.income().conservativeBaseUsd(),
-                summary.expenses().totalUsd(),
-                summary.expenses().availableAfterExpensesUsd(),
-                summary.expenses().committedIncomeRatio(),
-                summary.apartment().monthlySavingUsd(),
-                summary.apartment().currentSavingsUsd(),
-                summary.apartment().goalProgress(),
-                summary.cards().totalBalanceUsd());
     }
 
     // --- Ingresos -------------------------------------------------------
@@ -98,6 +158,8 @@ public class PlanCalculator {
                 Money.amount(salaryArs),
                 Money.amount(salaryUsd),
                 Money.amount(rate),
+                Money.amount(Money.nullSafe(income.cardDollarRate())),
+                Money.amount(Money.nullSafe(income.payoneerDollarRate())),
                 Money.amount(salaryUsdInArs),
                 Money.amount(totalArs),
                 Money.divide(totalArs, rate, Money.AMOUNT_SCALE),
@@ -192,6 +254,7 @@ public class PlanCalculator {
                         entry.item().detail(),
                         Money.amount(entry.item().amount()),
                         entry.item().currency(),
+                        entry.item().paymentMethod(),
                         entry.item().expenseType(),
                         entry.item().expenseGroup(),
                         entry.item().note(),
@@ -370,15 +433,14 @@ public class PlanCalculator {
             estimatedCompletion = PeriodLabels.full(period.yearMonth());
         }
 
+        YearMonth start = period.yearMonth();
         List<ProjectionPoint> projection = new ArrayList<>();
         for (int month = 0; month <= PROJECTION_MONTHS; month++) {
             BigDecimal accumulated = savings.add(monthlySaving.multiply(BigDecimal.valueOf(month)));
             projection.add(new ProjectionPoint(
                     month,
-                    PeriodLabels.shortLabel(period.yearMonth().plusMonths(month)),
-                    Money.amount(monthlySaving),
-                    Money.amount(accumulated),
-                    Money.divide(accumulated, cashGoal, Money.RATIO_SCALE)));
+                    PeriodLabels.shortLabel(start.plusMonths(month)),
+                    Money.amount(accumulated)));
         }
 
         return new ApartmentSummary(

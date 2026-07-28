@@ -13,6 +13,8 @@ public record IncomeSummary(
         BigDecimal salaryArs,
         BigDecimal salaryUsd,
         BigDecimal referenceRate,
+        BigDecimal cardDollarRate,
+        BigDecimal payoneerDollarRate,
         BigDecimal salaryUsdInArs,
         BigDecimal totalIncomeArs,
         BigDecimal totalIncomeUsd,

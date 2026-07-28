@@ -5,14 +5,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.finanzas.common.Currency;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.relational.core.mapping.Table;
 
 /**
  * Una fila de la hoja "Tarjetas".
  *
  * @param annualRatePercent tasa o CFT anual, usado para priorizar qué tarjeta pagar primero
  */
+@Table("credit_cards")
 public record CreditCard(
-        Long id,
+        @Id Long id,
         Long periodId,
         String name,
         BigDecimal balance,
@@ -23,7 +28,7 @@ public record CreditCard(
         BigDecimal monthlyPayment,
         CardStatus status,
         int sortOrder,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        @CreatedDate LocalDateTime createdAt,
+        @LastModifiedDate LocalDateTime updatedAt
 ) {
 }

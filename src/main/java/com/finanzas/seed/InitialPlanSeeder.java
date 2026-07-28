@@ -10,6 +10,7 @@ import com.finanzas.cards.repository.CreditCardRepository;
 import com.finanzas.common.Currency;
 import com.finanzas.expenses.model.ExpenseItem;
 import com.finanzas.expenses.model.ExpenseType;
+import com.finanzas.expenses.model.PaymentMethod;
 import com.finanzas.expenses.repository.ExpenseItemRepository;
 import com.finanzas.periods.model.ApartmentGoal;
 import com.finanzas.periods.model.FinancialPeriod;
@@ -65,19 +66,21 @@ public class InitialPlanSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (!seedEnabled || periodRepository.existsAny()) {
+        if (!seedEnabled || periodRepository.count() > 0) {
             return;
         }
 
         YearMonth current = YearMonth.now();
 
-        FinancialPeriod period = periodRepository.insert(new FinancialPeriod(
+        FinancialPeriod period = periodRepository.save(new FinancialPeriod(
                 null,
                 current.getYear(),
                 current.getMonthValue(),
                 new Income(
                         new BigDecimal("664000"),
                         new BigDecimal("3895"),
+                        new BigDecimal("1525"),
+                        new BigDecimal("1525"),
                         new BigDecimal("1525"),
                         new BigDecimal("4100")),
                 new ApartmentGoal(
@@ -116,7 +119,7 @@ public class InitialPlanSeeder implements ApplicationRunner {
                 allocation(periodId, PlanStage.AHORRO_APARTAMENTO, "Emergencias / mantenimiento", "0.05",
                         "Reserva separada", AllocationRole.NONE, 3));
 
-        allocations.forEach(allocationRepository::insert);
+        allocationRepository.saveAll(allocations);
     }
 
     private void seedExpenses(Long periodId) {
@@ -152,7 +155,7 @@ public class InitialPlanSeeder implements ApplicationRunner {
                 expense(periodId, "Teléfono", "Movistar", "42000", Currency.ARS,
                         ExpenseType.VARIABLE, "Otros", 14));
 
-        expenses.forEach(expenseRepository::insert);
+        expenseRepository.saveAll(expenses);
     }
 
     private void seedCards(Long periodId) {
@@ -161,7 +164,7 @@ public class InitialPlanSeeder implements ApplicationRunner {
                 card(periodId, "Tarjeta 2", Currency.ARS, 1),
                 card(periodId, "Tarjeta 3", Currency.USD, 2));
 
-        cards.forEach(cardRepository::insert);
+        cardRepository.saveAll(cards);
     }
 
     private PlanAllocation allocation(Long periodId, PlanStage stage, String concept, String percentage,
@@ -173,7 +176,7 @@ public class InitialPlanSeeder implements ApplicationRunner {
     private ExpenseItem expense(Long periodId, String category, String detail, String amount, Currency currency,
                                 ExpenseType type, String group, int sortOrder) {
         return new ExpenseItem(null, periodId, category, detail, new BigDecimal(amount), currency,
-                type, group, null, sortOrder, null, null);
+                PaymentMethod.DEBIT, type, group, null, sortOrder, null, null);
     }
 
     private CreditCard card(Long periodId, String name, Currency currency, int sortOrder) {

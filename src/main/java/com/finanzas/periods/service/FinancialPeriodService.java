@@ -1,13 +1,18 @@
 package com.finanzas.periods.service;
 
-import java.util.Comparator;
+import java.math.BigDecimal;
 import java.util.List;
 
 import com.finanzas.api.ConflictException;
 import com.finanzas.api.ResourceNotFoundException;
+import com.finanzas.calculator.model.ApartmentSummary;
+import com.finanzas.calculator.model.CardsSummary;
+import com.finanzas.calculator.model.ExpenseSummary;
 import com.finanzas.calculator.model.HistoryPoint;
+import com.finanzas.calculator.model.IncomeSummary;
+import com.finanzas.calculator.model.PeriodOverview;
 import com.finanzas.calculator.model.PeriodRef;
-import com.finanzas.calculator.model.PeriodSummary;
+import com.finanzas.calculator.model.PlanSummary;
 import com.finanzas.calculator.service.PlanCalculator;
 import com.finanzas.cards.dto.SaveCreditCardRequest;
 import com.finanzas.cards.model.CreditCard;
@@ -30,8 +35,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Punto único de entrada al plan. Toda mutación devuelve el periodo entero ya
- * recalculado, para que el cliente nunca tenga que replicar una fórmula.
+ * Punto único de entrada al plan.
+ *
+ * <p>Cada pantalla pide su propia porción y cada mutación devuelve sólo la
+ * porción que tocó, ya recalculada. Como las fórmulas encadenan las pantallas
+ * entre sí (cambiar el dólar mueve gastos, plan y apartamento), el cliente
+ * vuelve a pedir la porción de la pantalla al entrar en ella.
  */
 @Service
 public class FinancialPeriodService {
@@ -54,55 +63,38 @@ public class FinancialPeriodService {
         this.calculator = calculator;
     }
 
-    // --- Lectura --------------------------------------------------------
+    // --- Periodos -------------------------------------------------------
 
     public List<PeriodRef> listPeriods() {
-        return periodRepository.findAll().stream()
-                .map(period -> new PeriodRef(
-                        period.id(),
-                        period.periodYear(),
-                        period.periodMonth(),
-                        PeriodLabels.full(period.yearMonth())))
+        return periodRepository.findAllByOrderByPeriodYearDescPeriodMonthDesc().stream()
+                .map(calculator::periodRef)
                 .toList();
     }
 
-    public PeriodSummary summary(Long periodId) {
-        FinancialPeriod period = requirePeriod(periodId);
-        return calculator.summarize(
-                period,
-                expenseRepository.findByPeriodId(periodId),
-                allocationRepository.findByPeriodId(periodId),
-                cardRepository.findByPeriodId(periodId));
-    }
-
-    public PeriodSummary latestSummary() {
-        FinancialPeriod period = periodRepository.findLatest()
-                .orElseThrow(() -> new ResourceNotFoundException("Todavía no hay ningún periodo cargado"));
-        return summary(period.id());
+    public PeriodRef latestPeriod() {
+        return calculator.periodRef(periodRepository.findFirstByOrderByPeriodYearDescPeriodMonthDesc()
+                .orElseThrow(() -> new ResourceNotFoundException("Todavía no hay ningún periodo cargado")));
     }
 
     /** Serie histórica en orden cronológico, lista para graficar. */
     public List<HistoryPoint> history() {
-        return periodRepository.findAll().stream()
-                .sorted(Comparator.comparingInt(FinancialPeriod::periodYear)
-                        .thenComparingInt(FinancialPeriod::periodMonth))
-                .map(period -> calculator.toHistoryPoint(summary(period.id())))
+        return periodRepository.findAllByOrderByPeriodYearAscPeriodMonthAsc().stream()
+                .map(period -> calculator.historyPoint(
+                        period, expensesOf(period), allocationsOf(period), cardsOf(period)))
                 .toList();
     }
 
-    // --- Periodos -------------------------------------------------------
-
     @Transactional
-    public PeriodSummary createPeriod(CreatePeriodRequest request) {
-        periodRepository.findByYearMonth(request.year(), request.month()).ifPresent(existing -> {
+    public PeriodRef createPeriod(CreatePeriodRequest request) {
+        periodRepository.findByPeriodYearAndPeriodMonth(request.year(), request.month()).ifPresent(existing -> {
             throw new ConflictException("Ya existe un periodo para " + PeriodLabels.full(existing.yearMonth()));
         });
 
         FinancialPeriod source = request.cloneFromPeriodId() == null
-                ? periodRepository.findLatest().orElse(null)
+                ? periodRepository.findFirstByOrderByPeriodYearDescPeriodMonthDesc().orElse(null)
                 : requirePeriod(request.cloneFromPeriodId());
 
-        FinancialPeriod created = periodRepository.insert(new FinancialPeriod(
+        FinancialPeriod created = periodRepository.save(new FinancialPeriod(
                 null,
                 request.year(),
                 request.month(),
@@ -113,183 +105,243 @@ public class FinancialPeriodService {
                 null));
 
         if (source != null) {
-            copyContents(source.id(), created.id());
+            copyContents(source, created.id());
         }
 
-        return summary(created.id());
-    }
-
-    @Transactional
-    public PeriodSummary updateIncome(Long periodId, UpdateIncomeRequest request) {
-        requirePeriod(periodId);
-        periodRepository.updateIncome(periodId, new Income(
-                request.salaryArs(),
-                request.salaryUsd(),
-                request.referenceRate(),
-                request.conservativeBaseUsd()));
-        return summary(periodId);
-    }
-
-    @Transactional
-    public PeriodSummary updateApartmentGoal(Long periodId, UpdateApartmentGoalRequest request) {
-        requirePeriod(periodId);
-        periodRepository.updateApartmentGoal(periodId, new ApartmentGoal(
-                request.targetPriceUsd(),
-                request.downPaymentPercent(),
-                request.currentSavingsUsd()));
-        return summary(periodId);
-    }
-
-    @Transactional
-    public PeriodSummary updateNotes(Long periodId, String notes) {
-        requirePeriod(periodId);
-        periodRepository.updateNotes(periodId, notes);
-        return summary(periodId);
+        return calculator.periodRef(created);
     }
 
     @Transactional
     public void deletePeriod(Long periodId) {
-        requirePeriod(periodId);
-        periodRepository.deleteById(periodId);
+        // Los hijos se van con el ON DELETE CASCADE declarado en las migraciones.
+        periodRepository.delete(requirePeriod(periodId));
+    }
+
+    // --- Resumen --------------------------------------------------------
+
+    public PeriodOverview overview(Long periodId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        return calculator.overview(period, expensesOf(period), allocationsOf(period), cardsOf(period));
+    }
+
+    @Transactional
+    public PeriodOverview updateNotes(Long periodId, String notes) {
+        FinancialPeriod period = periodRepository.save(requirePeriod(periodId).withNotes(notes));
+        return calculator.overview(period, expensesOf(period), allocationsOf(period), cardsOf(period));
+    }
+
+    // --- Ingresos -------------------------------------------------------
+
+    public IncomeSummary income(Long periodId) {
+        return calculator.income(requirePeriod(periodId));
+    }
+
+    @Transactional
+    public IncomeSummary updateIncome(Long periodId, UpdateIncomeRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
+        return calculator.income(periodRepository.save(period.withIncome(new Income(
+                request.salaryArs(),
+                request.salaryUsd(),
+                request.referenceRate(),
+                request.cardDollarRate(),
+                request.payoneerDollarRate(),
+                request.conservativeBaseUsd()))));
     }
 
     // --- Gastos ---------------------------------------------------------
 
+    public ExpenseSummary expenses(Long periodId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        return calculator.expenses(period, expensesOf(period), allocationsOf(period));
+    }
+
     @Transactional
-    public PeriodSummary addExpense(Long periodId, SaveExpenseItemRequest request) {
-        requirePeriod(periodId);
+    public ExpenseSummary addExpense(Long periodId, SaveExpenseItemRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
+        List<ExpenseItem> current = expensesOf(period);
         int sortOrder = request.sortOrder() == null
-                ? expenseRepository.nextSortOrder(periodId)
+                ? nextSortOrder(current.stream().mapToInt(ExpenseItem::sortOrder))
                 : request.sortOrder();
 
-        expenseRepository.insert(new ExpenseItem(
+        expenseRepository.save(new ExpenseItem(
                 null, periodId, request.category(), request.detail(), request.amount(), request.currency(),
-                request.expenseType(), request.expenseGroup(), request.note(), sortOrder, null, null));
+                request.paymentMethod(), request.expenseType(), request.expenseGroup(), request.note(), sortOrder, null, null));
 
-        return summary(periodId);
+        return calculator.expenses(period, expensesOf(period), allocationsOf(period));
     }
 
     @Transactional
-    public PeriodSummary updateExpense(Long periodId, Long expenseId, SaveExpenseItemRequest request) {
+    public ExpenseSummary updateExpense(Long periodId, Long expenseId, SaveExpenseItemRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
         ExpenseItem existing = requireExpense(periodId, expenseId);
 
-        expenseRepository.update(new ExpenseItem(
+        expenseRepository.save(new ExpenseItem(
                 existing.id(), periodId, request.category(), request.detail(), request.amount(), request.currency(),
-                request.expenseType(), request.expenseGroup(), request.note(),
-                request.sortOrder() == null ? existing.sortOrder() : request.sortOrder(), null, null));
+                request.paymentMethod(), request.expenseType(), request.expenseGroup(), request.note(),
+                request.sortOrder() == null ? existing.sortOrder() : request.sortOrder(),
+                existing.createdAt(), existing.updatedAt()));
 
-        return summary(periodId);
+        return calculator.expenses(period, expensesOf(period), allocationsOf(period));
     }
 
     @Transactional
-    public PeriodSummary deleteExpense(Long periodId, Long expenseId) {
-        requireExpense(periodId, expenseId);
-        expenseRepository.deleteById(expenseId);
-        return summary(periodId);
+    public ExpenseSummary deleteExpense(Long periodId, Long expenseId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        expenseRepository.delete(requireExpense(periodId, expenseId));
+        return calculator.expenses(period, expensesOf(period), allocationsOf(period));
     }
 
     // --- Tarjetas -------------------------------------------------------
 
+    public CardsSummary cards(Long periodId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        return calculator.cards(period, cardsOf(period));
+    }
+
     @Transactional
-    public PeriodSummary addCard(Long periodId, SaveCreditCardRequest request) {
-        requirePeriod(periodId);
+    public CardsSummary addCard(Long periodId, SaveCreditCardRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
         int sortOrder = request.sortOrder() == null
-                ? cardRepository.nextSortOrder(periodId)
+                ? nextSortOrder(cardsOf(period).stream().mapToInt(CreditCard::sortOrder))
                 : request.sortOrder();
 
-        cardRepository.insert(new CreditCard(
+        cardRepository.save(new CreditCard(
                 null, periodId, request.name(), request.balance(), request.currency(), request.minimumPayment(),
                 request.annualRatePercent(), request.dueDate(), request.monthlyPayment(), request.status(),
                 sortOrder, null, null));
 
-        return summary(periodId);
+        return calculator.cards(period, cardsOf(period));
     }
 
     @Transactional
-    public PeriodSummary updateCard(Long periodId, Long cardId, SaveCreditCardRequest request) {
+    public CardsSummary updateCard(Long periodId, Long cardId, SaveCreditCardRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
         CreditCard existing = requireCard(periodId, cardId);
 
-        cardRepository.update(new CreditCard(
+        cardRepository.save(new CreditCard(
                 existing.id(), periodId, request.name(), request.balance(), request.currency(),
                 request.minimumPayment(), request.annualRatePercent(), request.dueDate(), request.monthlyPayment(),
                 request.status(), request.sortOrder() == null ? existing.sortOrder() : request.sortOrder(),
-                null, null));
+                existing.createdAt(), existing.updatedAt()));
 
-        return summary(periodId);
+        return calculator.cards(period, cardsOf(period));
     }
 
     @Transactional
-    public PeriodSummary deleteCard(Long periodId, Long cardId) {
-        requireCard(periodId, cardId);
-        cardRepository.deleteById(cardId);
-        return summary(periodId);
+    public CardsSummary deleteCard(Long periodId, Long cardId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        cardRepository.delete(requireCard(periodId, cardId));
+        return calculator.cards(period, cardsOf(period));
     }
 
     // --- Plan mensual ---------------------------------------------------
 
+    public PlanSummary plan(Long periodId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        return calculator.plan(period, allocationsOf(period));
+    }
+
     @Transactional
-    public PeriodSummary addAllocation(Long periodId, SavePlanAllocationRequest request) {
-        requirePeriod(periodId);
+    public PlanSummary addAllocation(Long periodId, SavePlanAllocationRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
         int sortOrder = request.sortOrder() == null
-                ? allocationRepository.nextSortOrder(periodId, request.stage())
+                ? nextSortOrder(allocationsOf(period).stream()
+                        .filter(allocation -> allocation.stage() == request.stage())
+                        .mapToInt(PlanAllocation::sortOrder))
                 : request.sortOrder();
 
-        allocationRepository.insert(new PlanAllocation(
+        allocationRepository.save(new PlanAllocation(
                 null, periodId, request.stage(), request.concept(), request.percentage(), request.objective(),
                 request.allocationRole(), sortOrder, null, null));
 
-        return summary(periodId);
+        return calculator.plan(period, allocationsOf(period));
     }
 
     @Transactional
-    public PeriodSummary updateAllocation(Long periodId, Long allocationId, SavePlanAllocationRequest request) {
+    public PlanSummary updateAllocation(Long periodId, Long allocationId,
+                                                   SavePlanAllocationRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
         PlanAllocation existing = requireAllocation(periodId, allocationId);
 
-        allocationRepository.update(new PlanAllocation(
+        allocationRepository.save(new PlanAllocation(
                 existing.id(), periodId, request.stage(), request.concept(), request.percentage(),
                 request.objective(), request.allocationRole(),
-                request.sortOrder() == null ? existing.sortOrder() : request.sortOrder(), null, null));
+                request.sortOrder() == null ? existing.sortOrder() : request.sortOrder(),
+                existing.createdAt(), existing.updatedAt()));
 
-        return summary(periodId);
+        return calculator.plan(period, allocationsOf(period));
     }
 
     @Transactional
-    public PeriodSummary deleteAllocation(Long periodId, Long allocationId) {
-        requireAllocation(periodId, allocationId);
-        allocationRepository.deleteById(allocationId);
-        return summary(periodId);
+    public PlanSummary deleteAllocation(Long periodId, Long allocationId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        allocationRepository.delete(requireAllocation(periodId, allocationId));
+        return calculator.plan(period, allocationsOf(period));
+    }
+
+    // --- Apartamento ----------------------------------------------------
+
+    public ApartmentSummary apartment(Long periodId) {
+        FinancialPeriod period = requirePeriod(periodId);
+        return calculator.apartment(period, expensesOf(period), allocationsOf(period));
+    }
+
+    @Transactional
+    public ApartmentSummary updateApartmentGoal(Long periodId, UpdateApartmentGoalRequest request) {
+        FinancialPeriod period = periodRepository.save(requirePeriod(periodId).withApartmentGoal(new ApartmentGoal(
+                request.targetPriceUsd(),
+                request.downPaymentPercent(),
+                request.currentSavingsUsd())));
+
+        return calculator.apartment(period, expensesOf(period), allocationsOf(period));
     }
 
     // --- Apoyo ----------------------------------------------------------
 
-    private void copyContents(Long sourcePeriodId, Long targetPeriodId) {
-        for (ExpenseItem item : expenseRepository.findByPeriodId(sourcePeriodId)) {
-            expenseRepository.insert(new ExpenseItem(
-                    null, targetPeriodId, item.category(), item.detail(), item.amount(), item.currency(),
-                    item.expenseType(), item.expenseGroup(), item.note(), item.sortOrder(), null, null));
-        }
+    private List<ExpenseItem> expensesOf(FinancialPeriod period) {
+        return expenseRepository.findByPeriodIdOrderBySortOrderAscIdAsc(period.id());
+    }
 
-        for (CreditCard card : cardRepository.findByPeriodId(sourcePeriodId)) {
-            cardRepository.insert(new CreditCard(
-                    null, targetPeriodId, card.name(), card.balance(), card.currency(), card.minimumPayment(),
-                    card.annualRatePercent(), card.dueDate(), card.monthlyPayment(), card.status(),
-                    card.sortOrder(), null, null));
-        }
+    private List<CreditCard> cardsOf(FinancialPeriod period) {
+        return cardRepository.findByPeriodIdOrderBySortOrderAscIdAsc(period.id());
+    }
 
-        for (PlanAllocation allocation : allocationRepository.findByPeriodId(sourcePeriodId)) {
-            allocationRepository.insert(new PlanAllocation(
-                    null, targetPeriodId, allocation.stage(), allocation.concept(), allocation.percentage(),
-                    allocation.objective(), allocation.allocationRole(), allocation.sortOrder(), null, null));
-        }
+    private List<PlanAllocation> allocationsOf(FinancialPeriod period) {
+        return allocationRepository.findByPeriodIdOrderByStageAscSortOrderAscIdAsc(period.id());
+    }
+
+    private void copyContents(FinancialPeriod source, Long targetPeriodId) {
+        expenseRepository.saveAll(expensesOf(source).stream()
+                .map(item -> new ExpenseItem(
+                        null, targetPeriodId, item.category(), item.detail(), item.amount(), item.currency(),
+                        item.paymentMethod(), item.expenseType(), item.expenseGroup(), item.note(), item.sortOrder(), null, null))
+                .toList());
+
+        cardRepository.saveAll(cardsOf(source).stream()
+                .map(card -> new CreditCard(
+                        null, targetPeriodId, card.name(), card.balance(), card.currency(),
+                        card.minimumPayment(), card.annualRatePercent(), card.dueDate(),
+                        card.monthlyPayment(), card.status(), card.sortOrder(), null, null))
+                .toList());
+
+        allocationRepository.saveAll(allocationsOf(source).stream()
+                .map(allocation -> new PlanAllocation(
+                        null, targetPeriodId, allocation.stage(), allocation.concept(),
+                        allocation.percentage(), allocation.objective(), allocation.allocationRole(),
+                        allocation.sortOrder(), null, null))
+                .toList());
+    }
+
+    private int nextSortOrder(java.util.stream.IntStream existing) {
+        return existing.max().orElse(-1) + 1;
     }
 
     private Income emptyIncome() {
-        return new Income(java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO,
-                java.math.BigDecimal.ONE, java.math.BigDecimal.ZERO);
+        return new Income(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO);
     }
 
     private ApartmentGoal emptyGoal() {
-        return new ApartmentGoal(java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO);
+        return new ApartmentGoal(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
     private FinancialPeriod requirePeriod(Long periodId) {

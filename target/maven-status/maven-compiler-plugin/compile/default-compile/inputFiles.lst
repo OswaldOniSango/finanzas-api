@@ -12,10 +12,11 @@
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/GroupTotal.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/HistoryPoint.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/IncomeSummary.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/PeriodOverview.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/PeriodRef.java
-/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/PeriodSummary.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/PlanLine.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/PlanStageSummary.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/PlanSummary.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/ProjectionPoint.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/service/PlanCalculator.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/cards/controller/CreditCardController.java
@@ -26,11 +27,13 @@
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/common/Currency.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/common/Money.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/common/PeriodLabels.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/config/PersistenceConfig.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/config/WebConfig.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/controller/ExpenseItemController.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/dto/SaveExpenseItemRequest.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/model/ExpenseItem.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/model/ExpenseType.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/model/PaymentMethod.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/repository/ExpenseItemRepository.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/periods/controller/FinancialPeriodController.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/periods/dto/CreatePeriodRequest.java

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import com.finanzas.common.Currency;
 import com.finanzas.expenses.model.ExpenseType;
+import com.finanzas.expenses.model.PaymentMethod;
 
 /**
  * Una fila de gastos con sus dos conversiones ya resueltas,
@@ -15,6 +16,7 @@ public record ExpenseLine(
         String detail,
         BigDecimal amount,
         Currency currency,
+        PaymentMethod paymentMethod,
         ExpenseType expenseType,
         String expenseGroup,
         String note,
