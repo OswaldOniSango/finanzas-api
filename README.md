@@ -55,6 +55,18 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mysql
 | `SPRING_DATASOURCE_URL` | H2 en `./data` | Base de datos |
 | `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origen del frontend |
 | `APP_SEED_ENABLED` | `true` | Cargar el plan inicial si la base está vacía |
+| `APP_SECURITY_USERNAME` | `admin` | Administrador inicial que se crea si todavía no existe |
+| `APP_SECURITY_PASSWORD` | `change-me-local` | Contraseña inicial del administrador; reemplazar al desplegar |
+| `APP_SECURITY_JWT_SECRET` | valor local de desarrollo | Clave de firma JWT de al menos 32 bytes |
+| `APP_SECURITY_TOKEN_HOURS` | `8` | Duración de cada sesión |
+
+Salvo `POST /api/auth/login` y `/actuator/health`, todos los endpoints requieren
+`Authorization: Bearer <token>`. Las credenciales y la clave JWT deben definirse
+como secretos del proveedor antes de publicar la aplicación.
+
+Los usuarios se guardan en la tabla `users` y sus contraseñas se almacenan con
+BCrypt. Cada usuario sólo puede consultar y modificar sus propios meses. El rol
+`ADMIN` también puede listar y crear usuarios desde la pantalla **Usuarios**.
 
 ## API
 
@@ -63,6 +75,9 @@ nunca tenga que replicar una fórmula.
 
 | Método | Ruta | Qué hace |
 |---|---|---|
+| `POST` | `/api/auth/login` | Valida credenciales y devuelve un JWT |
+| `GET` | `/api/users` | Lista usuarios (sólo administrador) |
+| `POST` | `/api/users` | Crea un usuario (sólo administrador) |
 | `GET` | `/api/periods` | Lista de meses |
 | `GET` | `/api/periods/latest` | Mes más reciente, resuelto |
 | `GET` | `/api/periods/history` | Serie histórica para graficar |

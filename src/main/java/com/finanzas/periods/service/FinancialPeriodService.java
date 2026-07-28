@@ -31,6 +31,7 @@ import com.finanzas.periods.repository.FinancialPeriodRepository;
 import com.finanzas.plan.dto.SavePlanAllocationRequest;
 import com.finanzas.plan.model.PlanAllocation;
 import com.finanzas.plan.repository.PlanAllocationRepository;
+import com.finanzas.users.service.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,35 +51,38 @@ public class FinancialPeriodService {
     private final CreditCardRepository cardRepository;
     private final PlanAllocationRepository allocationRepository;
     private final PlanCalculator calculator;
+    private final CurrentUserService currentUserService;
 
     public FinancialPeriodService(FinancialPeriodRepository periodRepository,
                                   ExpenseItemRepository expenseRepository,
                                   CreditCardRepository cardRepository,
                                   PlanAllocationRepository allocationRepository,
-                                  PlanCalculator calculator) {
+                                  PlanCalculator calculator,
+                                  CurrentUserService currentUserService) {
         this.periodRepository = periodRepository;
         this.expenseRepository = expenseRepository;
         this.cardRepository = cardRepository;
         this.allocationRepository = allocationRepository;
         this.calculator = calculator;
+        this.currentUserService = currentUserService;
     }
 
     // --- Periodos -------------------------------------------------------
 
     public List<PeriodRef> listPeriods() {
-        return periodRepository.findAllByOrderByPeriodYearDescPeriodMonthDesc().stream()
+        return periodRepository.findAllByOwnerUserIdOrderByPeriodYearDescPeriodMonthDesc(currentUserId()).stream()
                 .map(calculator::periodRef)
                 .toList();
     }
 
     public PeriodRef latestPeriod() {
-        return calculator.periodRef(periodRepository.findFirstByOrderByPeriodYearDescPeriodMonthDesc()
+        return calculator.periodRef(periodRepository.findFirstByOwnerUserIdOrderByPeriodYearDescPeriodMonthDesc(currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Todavía no hay ningún periodo cargado")));
     }
 
     /** Serie histórica en orden cronológico, lista para graficar. */
     public List<HistoryPoint> history() {
-        return periodRepository.findAllByOrderByPeriodYearAscPeriodMonthAsc().stream()
+        return periodRepository.findAllByOwnerUserIdOrderByPeriodYearAscPeriodMonthAsc(currentUserId()).stream()
                 .map(period -> calculator.historyPoint(
                         period, expensesOf(period), allocationsOf(period), cardsOf(period)))
                 .toList();
@@ -86,16 +90,19 @@ public class FinancialPeriodService {
 
     @Transactional
     public PeriodRef createPeriod(CreatePeriodRequest request) {
-        periodRepository.findByPeriodYearAndPeriodMonth(request.year(), request.month()).ifPresent(existing -> {
+        Long ownerUserId = currentUserId();
+        periodRepository.findByOwnerUserIdAndPeriodYearAndPeriodMonth(
+                ownerUserId, request.year(), request.month()).ifPresent(existing -> {
             throw new ConflictException("Ya existe un periodo para " + PeriodLabels.full(existing.yearMonth()));
         });
 
         FinancialPeriod source = request.cloneFromPeriodId() == null
-                ? periodRepository.findFirstByOrderByPeriodYearDescPeriodMonthDesc().orElse(null)
+                ? periodRepository.findFirstByOwnerUserIdOrderByPeriodYearDescPeriodMonthDesc(ownerUserId).orElse(null)
                 : requirePeriod(request.cloneFromPeriodId());
 
         FinancialPeriod created = periodRepository.save(new FinancialPeriod(
                 null,
+                ownerUserId,
                 request.year(),
                 request.month(),
                 source == null ? emptyIncome() : source.income(),
@@ -345,8 +352,12 @@ public class FinancialPeriodService {
     }
 
     private FinancialPeriod requirePeriod(Long periodId) {
-        return periodRepository.findById(periodId)
+        return periodRepository.findByIdAndOwnerUserId(periodId, currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("No existe el periodo " + periodId));
+    }
+
+    private Long currentUserId() {
+        return currentUserService.require().id();
     }
 
     private ExpenseItem requireExpense(Long periodId, Long expenseId) {

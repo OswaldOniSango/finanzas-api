@@ -20,11 +20,13 @@ import com.finanzas.plan.model.AllocationRole;
 import com.finanzas.plan.model.PlanAllocation;
 import com.finanzas.plan.model.PlanStage;
 import com.finanzas.plan.repository.PlanAllocationRepository;
+import com.finanzas.users.repository.AppUserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
  * así que nunca pisa datos ya cargados.
  */
 @Component
+@Order(2)
 public class InitialPlanSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(InitialPlanSeeder.class);
@@ -50,16 +53,22 @@ public class InitialPlanSeeder implements ApplicationRunner {
     private final CreditCardRepository cardRepository;
     private final PlanAllocationRepository allocationRepository;
     private final boolean seedEnabled;
+    private final AppUserRepository userRepository;
+    private final String initialUsername;
 
     public InitialPlanSeeder(FinancialPeriodRepository periodRepository,
                              ExpenseItemRepository expenseRepository,
                              CreditCardRepository cardRepository,
                              PlanAllocationRepository allocationRepository,
+                             AppUserRepository userRepository,
+                             @Value("${app.security.username}") String initialUsername,
                              @Value("${app.seed.enabled:true}") boolean seedEnabled) {
         this.periodRepository = periodRepository;
         this.expenseRepository = expenseRepository;
         this.cardRepository = cardRepository;
         this.allocationRepository = allocationRepository;
+        this.userRepository = userRepository;
+        this.initialUsername = initialUsername;
         this.seedEnabled = seedEnabled;
     }
 
@@ -71,9 +80,11 @@ public class InitialPlanSeeder implements ApplicationRunner {
         }
 
         YearMonth current = YearMonth.now();
+        Long ownerUserId = userRepository.findByUsername(initialUsername).orElseThrow().id();
 
         FinancialPeriod period = periodRepository.save(new FinancialPeriod(
                 null,
+                ownerUserId,
                 current.getYear(),
                 current.getMonthValue(),
                 new Income(

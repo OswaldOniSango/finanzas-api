@@ -4,6 +4,9 @@
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/api/FieldErrorResponse.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/api/GlobalExceptionHandler.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/api/ResourceNotFoundException.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/auth/AuthController.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/auth/LoginRequest.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/auth/LoginResponse.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/ApartmentSummary.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/CardLine.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/calculator/model/CardsSummary.java
@@ -28,6 +31,7 @@
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/common/Money.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/common/PeriodLabels.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/config/PersistenceConfig.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/config/SecurityConfig.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/config/WebConfig.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/controller/ExpenseItemController.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/expenses/dto/SaveExpenseItemRequest.java
@@ -52,3 +56,13 @@
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/plan/model/PlanStage.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/plan/repository/PlanAllocationRepository.java
 /Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/seed/InitialPlanSeeder.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/seed/InitialUserSeeder.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/controller/UserController.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/dto/CreateUserRequest.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/dto/UserResponse.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/model/AppUser.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/model/UserRole.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/repository/AppUserRepository.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/service/CurrentUserService.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/service/DatabaseUserDetailsService.java
+/Users/oswaldohernandez/personal-project/finanzas-api/src/main/java/com/finanzas/users/service/UserService.java

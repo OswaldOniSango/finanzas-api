@@ -21,6 +21,7 @@ import org.springframework.data.relational.core.mapping.Table;
 @Table("financial_periods")
 public record FinancialPeriod(
         @Id Long id,
+        Long ownerUserId,
         int periodYear,
         int periodMonth,
         @Embedded(onEmpty = Embedded.OnEmpty.USE_EMPTY) Income income,
@@ -35,14 +36,18 @@ public record FinancialPeriod(
     }
 
     public FinancialPeriod withIncome(Income newIncome) {
-        return new FinancialPeriod(id, periodYear, periodMonth, newIncome, apartmentGoal, notes, createdAt, updatedAt);
+        return new FinancialPeriod(id, ownerUserId, periodYear, periodMonth, newIncome, apartmentGoal, notes, createdAt, updatedAt);
     }
 
     public FinancialPeriod withApartmentGoal(ApartmentGoal newGoal) {
-        return new FinancialPeriod(id, periodYear, periodMonth, income, newGoal, notes, createdAt, updatedAt);
+        return new FinancialPeriod(id, ownerUserId, periodYear, periodMonth, income, newGoal, notes, createdAt, updatedAt);
     }
 
     public FinancialPeriod withNotes(String newNotes) {
-        return new FinancialPeriod(id, periodYear, periodMonth, income, apartmentGoal, newNotes, createdAt, updatedAt);
+        return new FinancialPeriod(id, ownerUserId, periodYear, periodMonth, income, apartmentGoal, newNotes, createdAt, updatedAt);
+    }
+
+    public FinancialPeriod withOwnerUserId(Long newOwnerUserId) {
+        return new FinancialPeriod(id, newOwnerUserId, periodYear, periodMonth, income, apartmentGoal, notes, createdAt, updatedAt);
     }
 }

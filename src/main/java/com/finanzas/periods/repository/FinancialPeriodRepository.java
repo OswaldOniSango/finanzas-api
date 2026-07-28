@@ -10,11 +10,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FinancialPeriodRepository extends ListCrudRepository<FinancialPeriod, Long> {
 
-    List<FinancialPeriod> findAllByOrderByPeriodYearDescPeriodMonthDesc();
+    List<FinancialPeriod> findAllByOwnerUserIdOrderByPeriodYearDescPeriodMonthDesc(Long ownerUserId);
 
-    List<FinancialPeriod> findAllByOrderByPeriodYearAscPeriodMonthAsc();
+    List<FinancialPeriod> findAllByOwnerUserIdOrderByPeriodYearAscPeriodMonthAsc(Long ownerUserId);
 
-    Optional<FinancialPeriod> findByPeriodYearAndPeriodMonth(int periodYear, int periodMonth);
+    Optional<FinancialPeriod> findByOwnerUserIdAndPeriodYearAndPeriodMonth(
+            Long ownerUserId, int periodYear, int periodMonth);
 
-    Optional<FinancialPeriod> findFirstByOrderByPeriodYearDescPeriodMonthDesc();
+    Optional<FinancialPeriod> findFirstByOwnerUserIdOrderByPeriodYearDescPeriodMonthDesc(Long ownerUserId);
+
+    Optional<FinancialPeriod> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 }
