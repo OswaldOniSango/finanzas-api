@@ -20,6 +20,7 @@ import com.finanzas.calculator.model.PeriodRef;
 import com.finanzas.calculator.model.PlanSummary;
 import com.finanzas.calculator.service.PlanCalculator;
 import com.finanzas.cards.dto.SaveCreditCardRequest;
+import com.finanzas.cards.dto.UpdateCardLimitRequest;
 import com.finanzas.cards.model.CreditCard;
 import com.finanzas.cards.repository.CreditCardRepository;
 import com.finanzas.common.PeriodLabels;
@@ -160,7 +161,8 @@ public class FinancialPeriodService {
                 request.referenceRate(),
                 request.cardDollarRate(),
                 request.payoneerDollarRate(),
-                request.conservativeBaseUsd()))));
+                request.conservativeBaseUsd(),
+                period.income().cardMonthlyLimitUsd()))));
     }
 
     // --- Cierre mensual -------------------------------------------------
@@ -207,7 +209,8 @@ public class FinancialPeriodService {
 
         expenseRepository.save(new ExpenseItem(
                 null, periodId, request.category(), request.detail(), request.amount(), request.currency(),
-                request.paymentMethod(), request.expenseType(), request.expenseGroup(), request.note(), sortOrder, null, null));
+                request.paymentMethod(), request.countsTowardCardLimit(), request.expenseType(), request.expenseGroup(),
+                request.note(), sortOrder, null, null));
 
         return calculator.expenses(period, expensesOf(period), allocationsOf(period));
     }
@@ -219,7 +222,7 @@ public class FinancialPeriodService {
 
         expenseRepository.save(new ExpenseItem(
                 existing.id(), periodId, request.category(), request.detail(), request.amount(), request.currency(),
-                request.paymentMethod(), request.expenseType(), request.expenseGroup(), request.note(),
+                request.paymentMethod(), request.countsTowardCardLimit(), request.expenseType(), request.expenseGroup(), request.note(),
                 request.sortOrder() == null ? existing.sortOrder() : request.sortOrder(),
                 existing.createdAt(), existing.updatedAt()));
 
@@ -237,7 +240,7 @@ public class FinancialPeriodService {
 
     public CardsSummary cards(Long periodId) {
         FinancialPeriod period = requirePeriod(periodId);
-        return calculator.cards(period, cardsOf(period));
+        return calculator.cards(period, cardsOf(period), expensesOf(period));
     }
 
     @Transactional
@@ -252,7 +255,7 @@ public class FinancialPeriodService {
                 request.annualRatePercent(), request.dueDate(), request.monthlyPayment(), request.status(),
                 sortOrder, null, null));
 
-        return calculator.cards(period, cardsOf(period));
+        return calculator.cards(period, cardsOf(period), expensesOf(period));
     }
 
     @Transactional
@@ -266,14 +269,22 @@ public class FinancialPeriodService {
                 request.status(), request.sortOrder() == null ? existing.sortOrder() : request.sortOrder(),
                 existing.createdAt(), existing.updatedAt()));
 
-        return calculator.cards(period, cardsOf(period));
+        return calculator.cards(period, cardsOf(period), expensesOf(period));
     }
 
     @Transactional
     public CardsSummary deleteCard(Long periodId, Long cardId) {
         FinancialPeriod period = requirePeriod(periodId);
         cardRepository.delete(requireCard(periodId, cardId));
-        return calculator.cards(period, cardsOf(period));
+        return calculator.cards(period, cardsOf(period), expensesOf(period));
+    }
+
+    @Transactional
+    public CardsSummary updateCardLimit(Long periodId, UpdateCardLimitRequest request) {
+        FinancialPeriod period = requirePeriod(periodId);
+        FinancialPeriod updated = periodRepository.save(period.withIncome(
+                period.income().withCardMonthlyLimitUsd(request.monthlyLimitUsd())));
+        return calculator.cards(updated, cardsOf(updated), expensesOf(updated));
     }
 
     // --- Plan mensual ---------------------------------------------------
@@ -356,7 +367,8 @@ public class FinancialPeriodService {
         expenseRepository.saveAll(expensesOf(source).stream()
                 .map(item -> new ExpenseItem(
                         null, targetPeriodId, item.category(), item.detail(), item.amount(), item.currency(),
-                        item.paymentMethod(), item.expenseType(), item.expenseGroup(), item.note(), item.sortOrder(), null, null))
+                        item.paymentMethod(), item.countsTowardCardLimit(), item.expenseType(), item.expenseGroup(), item.note(),
+                        item.sortOrder(), null, null))
                 .toList());
 
         cardRepository.saveAll(cardsOf(source).stream()
@@ -379,7 +391,8 @@ public class FinancialPeriodService {
     }
 
     private Income emptyIncome() {
-        return new Income(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO);
+        return new Income(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE,
+                BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
     private ApartmentGoal emptyGoal() {
