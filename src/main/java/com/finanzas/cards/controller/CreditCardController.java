@@ -2,6 +2,7 @@ package com.finanzas.cards.controller;
 
 import com.finanzas.calculator.model.CardsSummary;
 import com.finanzas.cards.dto.SaveCreditCardRequest;
+import com.finanzas.cards.dto.UpdateCardLimitRequest;
 import com.finanzas.periods.service.FinancialPeriodService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,12 @@ public class CreditCardController {
     public ResponseEntity<CardsSummary> create(@PathVariable Long periodId,
                                                @Valid @RequestBody SaveCreditCardRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.addCard(periodId, request));
+    }
+
+    @PutMapping("/limit")
+    public CardsSummary updateLimit(@PathVariable Long periodId,
+                                    @Valid @RequestBody UpdateCardLimitRequest request) {
+        return service.updateCardLimit(periodId, request);
     }
 
     @PutMapping("/{cardId}")

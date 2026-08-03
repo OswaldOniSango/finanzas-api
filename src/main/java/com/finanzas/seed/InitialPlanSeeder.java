@@ -93,7 +93,8 @@ public class InitialPlanSeeder implements ApplicationRunner {
                         new BigDecimal("1525"),
                         new BigDecimal("1525"),
                         new BigDecimal("1525"),
-                        new BigDecimal("4100")),
+                        new BigDecimal("4100"),
+                        new BigDecimal("1330")),
                 new ApartmentGoal(
                         new BigDecimal("100000"),
                         new BigDecimal("0.30"),
@@ -187,7 +188,7 @@ public class InitialPlanSeeder implements ApplicationRunner {
     private ExpenseItem expense(Long periodId, String category, String detail, String amount, Currency currency,
                                 ExpenseType type, String group, int sortOrder) {
         return new ExpenseItem(null, periodId, category, detail, new BigDecimal(amount), currency,
-                PaymentMethod.DEBIT, type, group, null, sortOrder, null, null);
+                PaymentMethod.DEBIT, true, type, group, null, sortOrder, null, null);
     }
 
     private CreditCard card(Long periodId, String name, Currency currency, int sortOrder) {

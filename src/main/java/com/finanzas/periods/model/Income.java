@@ -11,6 +11,7 @@ import java.math.BigDecimal;
  * @param cardDollarRate      cotización usada para pagar en ARS consumos de tarjeta en USD
  * @param payoneerDollarRate  cotización neta al cambiar USD de Payoneer hacia Santander
  * @param conservativeBaseUsd base conservadora en USD sobre la que se arma el plan
+ * @param cardMonthlyLimitUsd límite total de consumos con crédito para el mes
  */
 public record Income(
         BigDecimal salaryArs,
@@ -18,6 +19,11 @@ public record Income(
         BigDecimal referenceRate,
         BigDecimal cardDollarRate,
         BigDecimal payoneerDollarRate,
-        BigDecimal conservativeBaseUsd
+        BigDecimal conservativeBaseUsd,
+        BigDecimal cardMonthlyLimitUsd
 ) {
+    public Income withCardMonthlyLimitUsd(BigDecimal newCardMonthlyLimitUsd) {
+        return new Income(salaryArs, salaryUsd, referenceRate, cardDollarRate, payoneerDollarRate,
+                conservativeBaseUsd, newCardMonthlyLimitUsd);
+    }
 }

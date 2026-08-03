@@ -15,6 +15,14 @@ public record CardsSummary(
         BigDecimal totalMonthlyPaymentUsd,
         BigDecimal totalMonthlyPaymentArs,
         BigDecimal totalBalanceAfterPaymentUsd,
-        Integer estimatedPayoffMonths
+        Integer estimatedPayoffMonths,
+        BigDecimal monthlyLimitUsd,
+        BigDecimal monthlyLimitArs,
+        BigDecimal creditExpensesUsd,
+        BigDecimal creditExpensesArs,
+        BigDecimal externalCreditExpensesUsd,
+        BigDecimal externalCreditExpensesArs,
+        BigDecimal availableLimitUsd,
+        BigDecimal availableLimitArs
 ) {
 }

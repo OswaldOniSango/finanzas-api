@@ -28,6 +28,7 @@ import com.finanzas.common.Currency;
 import com.finanzas.common.Money;
 import com.finanzas.common.PeriodLabels;
 import com.finanzas.expenses.model.ExpenseItem;
+import com.finanzas.expenses.model.PaymentMethod;
 import com.finanzas.periods.model.FinancialPeriod;
 import com.finanzas.periods.model.Income;
 import com.finanzas.plan.model.AllocationRole;
@@ -71,8 +72,9 @@ public class PlanCalculator {
         return summarizeExpenses(items, income(period), allocations);
     }
 
-    public CardsSummary cards(FinancialPeriod period, List<CreditCard> cards) {
-        return summarizeCards(cards, income(period).referenceRate());
+    public CardsSummary cards(FinancialPeriod period, List<CreditCard> cards, List<ExpenseItem> items) {
+        IncomeSummary income = income(period);
+        return summarizeCards(cards, items, income.referenceRate(), period.income().cardMonthlyLimitUsd());
     }
 
     public ApartmentSummary apartment(FinancialPeriod period,
@@ -89,7 +91,8 @@ public class PlanCalculator {
 
         IncomeSummary income = income(period);
         ExpenseSummary expenses = summarizeExpenses(items, income, allocations);
-        CardsSummary cardsSummary = summarizeCards(cards, income.referenceRate());
+        CardsSummary cardsSummary = summarizeCards(
+                cards, items, income.referenceRate(), period.income().cardMonthlyLimitUsd());
         ApartmentSummary apartment = summarizeApartment(period, allocations, income, expenses);
 
         return new PeriodOverview(
@@ -132,7 +135,8 @@ public class PlanCalculator {
                 apartment.monthlySavingUsd(),
                 apartment.currentSavingsUsd(),
                 apartment.goalProgress(),
-                summarizeCards(cards, income.referenceRate()).totalBalanceUsd());
+                summarizeCards(cards, items, income.referenceRate(), period.income().cardMonthlyLimitUsd())
+                        .totalBalanceUsd());
     }
 
     public PeriodRef periodRef(FinancialPeriod period) {
@@ -164,7 +168,9 @@ public class PlanCalculator {
                 Money.amount(totalArs),
                 Money.divide(totalArs, rate, Money.AMOUNT_SCALE),
                 Money.amount(base),
-                Money.amount(base.multiply(rate)));
+                Money.amount(base.multiply(rate)),
+                Money.amount(Money.nullSafe(income.cardMonthlyLimitUsd())),
+                Money.amount(Money.nullSafe(income.cardMonthlyLimitUsd()).multiply(rate)));
     }
 
     // --- Plan mensual ---------------------------------------------------
@@ -255,6 +261,7 @@ public class PlanCalculator {
                         Money.amount(entry.item().amount()),
                         entry.item().currency(),
                         entry.item().paymentMethod(),
+                        entry.item().countsTowardCardLimit(),
                         entry.item().expenseType(),
                         entry.item().expenseGroup(),
                         entry.item().note(),
@@ -269,6 +276,28 @@ public class PlanCalculator {
 
         BigDecimal availableUsd = income.conservativeBaseUsd().subtract(totalUsd);
         BigDecimal availableArs = income.conservativeBaseArs().subtract(totalArs);
+        BigDecimal creditExpensesUsd = converted.stream()
+                .filter(entry -> entry.item().paymentMethod() == PaymentMethod.CREDIT)
+                .map(Converted::usd)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal creditExpensesArs = converted.stream()
+                .filter(entry -> entry.item().paymentMethod() == PaymentMethod.CREDIT)
+                .map(Converted::ars)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal ownCardExpensesUsd = converted.stream()
+                .filter(entry -> entry.item().paymentMethod() == PaymentMethod.CREDIT)
+                .filter(entry -> entry.item().countsTowardCardLimit())
+                .map(Converted::usd)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal ownCardExpensesArs = converted.stream()
+                .filter(entry -> entry.item().paymentMethod() == PaymentMethod.CREDIT)
+                .filter(entry -> entry.item().countsTowardCardLimit())
+                .map(Converted::ars)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal externalCreditExpensesUsd = creditExpensesUsd.subtract(ownCardExpensesUsd);
+        BigDecimal externalCreditExpensesArs = creditExpensesArs.subtract(ownCardExpensesArs);
+        BigDecimal availableCardLimitUsd = income.cardMonthlyLimitUsd().subtract(ownCardExpensesUsd);
+        BigDecimal availableCardLimitArs = income.cardMonthlyLimitArs().subtract(ownCardExpensesArs);
 
         BigDecimal budgetUsd = allocations.stream()
                 .filter(allocation -> allocation.allocationRole() == AllocationRole.PRESUPUESTO_GASTOS)
@@ -297,7 +326,17 @@ public class PlanCalculator {
                 budgetUsd == null ? null : Money.amount(budgetUsd),
                 budgetUsd == null ? null : Money.amount(budgetUsd.multiply(rate).subtract(totalArs)),
                 budgetUsd == null ? null : Money.amount(budgetUsd.subtract(totalUsd)),
-                withinBudget);
+                withinBudget,
+                income.cardMonthlyLimitArs(),
+                income.cardMonthlyLimitUsd(),
+                Money.amount(creditExpensesArs),
+                Money.amount(creditExpensesUsd),
+                Money.amount(ownCardExpensesArs),
+                Money.amount(ownCardExpensesUsd),
+                Money.amount(externalCreditExpensesArs),
+                Money.amount(externalCreditExpensesUsd),
+                Money.amount(availableCardLimitArs),
+                Money.amount(availableCardLimitUsd));
     }
 
     private List<GroupTotal> groupTotals(List<ExpenseLine> lines,
@@ -323,7 +362,10 @@ public class PlanCalculator {
 
     // --- Tarjetas -------------------------------------------------------
 
-    private CardsSummary summarizeCards(List<CreditCard> cards, BigDecimal rate) {
+    private CardsSummary summarizeCards(List<CreditCard> cards,
+                                        List<ExpenseItem> items,
+                                        BigDecimal rate,
+                                        BigDecimal monthlyLimitUsdValue) {
         List<CardLine> lines = new ArrayList<>();
         BigDecimal totalBalanceUsd = BigDecimal.ZERO;
         BigDecimal totalMinimumUsd = BigDecimal.ZERO;
@@ -376,6 +418,19 @@ public class PlanCalculator {
             totalAfterUsd = totalAfterUsd.add(afterUsd);
         }
 
+        BigDecimal monthlyLimitUsd = Money.nullSafe(monthlyLimitUsdValue);
+        BigDecimal creditExpensesUsd = items.stream()
+                .filter(item -> item.paymentMethod() == PaymentMethod.CREDIT)
+                .filter(ExpenseItem::countsTowardCardLimit)
+                .map(item -> toUsd(Money.nullSafe(item.amount()), item.currency(), rate))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal externalCreditExpensesUsd = items.stream()
+                .filter(item -> item.paymentMethod() == PaymentMethod.CREDIT)
+                .filter(item -> !item.countsTowardCardLimit())
+                .map(item -> toUsd(Money.nullSafe(item.amount()), item.currency(), rate))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal availableLimitUsd = monthlyLimitUsd.subtract(creditExpensesUsd);
+
         return new CardsSummary(
                 lines,
                 Money.amount(totalBalanceUsd),
@@ -384,7 +439,15 @@ public class PlanCalculator {
                 Money.amount(totalPaymentUsd),
                 Money.amount(totalPaymentUsd.multiply(rate)),
                 Money.amount(totalAfterUsd),
-                slowestPayoff);
+                slowestPayoff,
+                Money.amount(monthlyLimitUsd),
+                Money.amount(monthlyLimitUsd.multiply(rate)),
+                Money.amount(creditExpensesUsd),
+                Money.amount(creditExpensesUsd.multiply(rate)),
+                Money.amount(externalCreditExpensesUsd),
+                Money.amount(externalCreditExpensesUsd.multiply(rate)),
+                Money.amount(availableLimitUsd),
+                Money.amount(availableLimitUsd.multiply(rate)));
     }
 
     private BigDecimal toUsd(BigDecimal amount, Currency currency, BigDecimal rate) {
