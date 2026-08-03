@@ -19,6 +19,8 @@ public record IncomeSummary(
         BigDecimal totalIncomeArs,
         BigDecimal totalIncomeUsd,
         BigDecimal conservativeBaseUsd,
-        BigDecimal conservativeBaseArs
+        BigDecimal conservativeBaseArs,
+        BigDecimal cardMonthlyLimitUsd,
+        BigDecimal cardMonthlyLimitArs
 ) {
 }

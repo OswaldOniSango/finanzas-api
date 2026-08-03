@@ -16,6 +16,7 @@ public record SaveExpenseItemRequest(
         @NotNull @PositiveOrZero BigDecimal amount,
         @NotNull Currency currency,
         @NotNull PaymentMethod paymentMethod,
+        @NotNull Boolean countsTowardCardLimit,
         @NotNull ExpenseType expenseType,
         @NotBlank @Size(max = 100) String expenseGroup,
         @Size(max = 500) String note,

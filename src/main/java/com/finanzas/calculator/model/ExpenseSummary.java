@@ -26,6 +26,16 @@ public record ExpenseSummary(
         BigDecimal targetBudgetUsd,
         BigDecimal differenceVsBudgetArs,
         BigDecimal differenceVsBudgetUsd,
-        boolean withinBudget
+        boolean withinBudget,
+        BigDecimal cardMonthlyLimitArs,
+        BigDecimal cardMonthlyLimitUsd,
+        BigDecimal creditExpensesArs,
+        BigDecimal creditExpensesUsd,
+        BigDecimal ownCardExpensesArs,
+        BigDecimal ownCardExpensesUsd,
+        BigDecimal externalCreditExpensesArs,
+        BigDecimal externalCreditExpensesUsd,
+        BigDecimal availableCardLimitArs,
+        BigDecimal availableCardLimitUsd
 ) {
 }

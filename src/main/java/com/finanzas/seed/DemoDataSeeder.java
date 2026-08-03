@@ -91,7 +91,8 @@ public class DemoDataSeeder implements ApplicationRunner {
                         amount("1450"),
                         amount("1510"),
                         amount("1425"),
-                        amount("3000")),
+                        amount("3000"),
+                        amount("900")),
                 new ApartmentGoal(amount("95000"), amount("0.25"), amount("18500")),
                 "Datos ficticios para explorar el funcionamiento del plan financiero.",
                 null,
@@ -151,7 +152,7 @@ public class DemoDataSeeder implements ApplicationRunner {
             String group,
             int sortOrder) {
         return new ExpenseItem(null, periodId, category, detail, amount(amount), currency,
-                paymentMethod, type, group, null, sortOrder, null, null);
+                paymentMethod, true, type, group, null, sortOrder, null, null);
     }
 
     private PlanAllocation allocation(

@@ -24,6 +24,7 @@ public record ExpenseItem(
         BigDecimal amount,
         Currency currency,
         PaymentMethod paymentMethod,
+        boolean countsTowardCardLimit,
         ExpenseType expenseType,
         String expenseGroup,
         String note,
