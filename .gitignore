@@ -1,4 +1,7 @@
 target/
 data/
+data/*.mv.db
+data/*.trace.db
+data/backups/
 *.log
 .DS_Store
