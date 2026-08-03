@@ -47,6 +47,19 @@ docker compose up -d
 mvn spring-boot:run -Dspring-boot.run.profiles=mysql
 ```
 
+### Actualizar H2 desde Supabase
+
+Con la API local detenida, ejecutá:
+
+```bash
+./scripts/refresh-local-from-supabase.sh
+```
+
+El script pide la contraseña de Supabase sin mostrarla, actualiza primero el
+esquema local con Flyway, crea un respaldo con fecha en `data/backups/` y sólo
+después reemplaza los datos de H2. Supabase se abre únicamente para lectura.
+Si la copia falla, el respaldo local se restaura automáticamente.
+
 ## Variables
 
 | Variable | Default | Para qué |
