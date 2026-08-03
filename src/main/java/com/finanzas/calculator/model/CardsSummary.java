@@ -23,6 +23,7 @@ public record CardsSummary(
         BigDecimal externalCreditExpensesUsd,
         BigDecimal externalCreditExpensesArs,
         BigDecimal availableLimitUsd,
-        BigDecimal availableLimitArs
+        BigDecimal availableLimitArs,
+        BigDecimal referenceRate
 ) {
 }
