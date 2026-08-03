@@ -447,7 +447,8 @@ public class PlanCalculator {
                 Money.amount(externalCreditExpensesUsd),
                 Money.amount(externalCreditExpensesUsd.multiply(rate)),
                 Money.amount(availableLimitUsd),
-                Money.amount(availableLimitUsd.multiply(rate)));
+                Money.amount(availableLimitUsd.multiply(rate)),
+                Money.amount(rate));
     }
 
     private BigDecimal toUsd(BigDecimal amount, Currency currency, BigDecimal rate) {
