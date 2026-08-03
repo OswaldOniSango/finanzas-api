@@ -3,6 +3,10 @@ package com.finanzas.periods.service;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.finanzas.actuals.dto.MonthlyActualsResponse;
+import com.finanzas.actuals.dto.UpdateMonthlyActualsRequest;
+import com.finanzas.actuals.model.MonthlyActuals;
+import com.finanzas.actuals.repository.MonthlyActualsRepository;
 import com.finanzas.api.ConflictException;
 import com.finanzas.api.ResourceNotFoundException;
 import com.finanzas.calculator.model.ApartmentSummary;
@@ -52,19 +56,22 @@ public class FinancialPeriodService {
     private final PlanAllocationRepository allocationRepository;
     private final PlanCalculator calculator;
     private final CurrentUserService currentUserService;
+    private final MonthlyActualsRepository actualsRepository;
 
     public FinancialPeriodService(FinancialPeriodRepository periodRepository,
                                   ExpenseItemRepository expenseRepository,
                                   CreditCardRepository cardRepository,
                                   PlanAllocationRepository allocationRepository,
                                   PlanCalculator calculator,
-                                  CurrentUserService currentUserService) {
+                                  CurrentUserService currentUserService,
+                                  MonthlyActualsRepository actualsRepository) {
         this.periodRepository = periodRepository;
         this.expenseRepository = expenseRepository;
         this.cardRepository = cardRepository;
         this.allocationRepository = allocationRepository;
         this.calculator = calculator;
         this.currentUserService = currentUserService;
+        this.actualsRepository = actualsRepository;
     }
 
     // --- Periodos -------------------------------------------------------
@@ -153,6 +160,28 @@ public class FinancialPeriodService {
                 request.cardDollarRate(),
                 request.payoneerDollarRate(),
                 request.conservativeBaseUsd()))));
+    }
+
+    // --- Cierre mensual -------------------------------------------------
+
+    public MonthlyActualsResponse monthlyActuals(Long periodId) {
+        requirePeriod(periodId);
+        return actualsRepository.findByPeriodId(periodId)
+                .map(MonthlyActualsResponse::from)
+                .orElseGet(MonthlyActualsResponse::empty);
+    }
+
+    @Transactional
+    public MonthlyActualsResponse updateMonthlyActuals(Long periodId, UpdateMonthlyActualsRequest request) {
+        requirePeriod(periodId);
+        MonthlyActuals existing = actualsRepository.findByPeriodId(periodId).orElse(null);
+        MonthlyActuals saved = actualsRepository.save(new MonthlyActuals(
+                existing == null ? null : existing.id(), periodId,
+                request.usdExchanged(), request.arsReceived(),
+                request.cardPaymentsArs(), request.cardPaymentsUsd(), request.notes(),
+                existing == null ? null : existing.createdAt(),
+                existing == null ? null : existing.updatedAt()));
+        return MonthlyActualsResponse.from(saved);
     }
 
     // --- Gastos ---------------------------------------------------------
