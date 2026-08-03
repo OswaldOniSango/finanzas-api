@@ -1,6 +1,7 @@
 package com.finanzas.periods.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 import com.finanzas.actuals.dto.MonthlyActualsResponse;
@@ -175,10 +176,15 @@ public class FinancialPeriodService {
     public MonthlyActualsResponse updateMonthlyActuals(Long periodId, UpdateMonthlyActualsRequest request) {
         requirePeriod(periodId);
         MonthlyActuals existing = actualsRepository.findByPeriodId(periodId).orElse(null);
+        BigDecimal actualRate = request.actualPayoneerRate();
+        BigDecimal arsReceived = request.usdExchanged().multiply(actualRate);
+        BigDecimal cardPaymentsUsd = actualRate.signum() > 0
+                ? request.cardPaymentsArs().divide(actualRate, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
         MonthlyActuals saved = actualsRepository.save(new MonthlyActuals(
                 existing == null ? null : existing.id(), periodId,
-                request.usdExchanged(), request.arsReceived(),
-                request.cardPaymentsArs(), request.cardPaymentsUsd(), request.notes(),
+                actualRate, request.usdExchanged(), arsReceived,
+                request.cardPaymentsArs(), cardPaymentsUsd, request.notes(),
                 existing == null ? null : existing.createdAt(),
                 existing == null ? null : existing.updatedAt()));
         return MonthlyActualsResponse.from(saved);

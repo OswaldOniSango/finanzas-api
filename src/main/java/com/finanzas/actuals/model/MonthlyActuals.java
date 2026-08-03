@@ -12,6 +12,7 @@ import org.springframework.data.relational.core.mapping.Table;
 public record MonthlyActuals(
         @Id Long id,
         Long periodId,
+        BigDecimal actualPayoneerRate,
         BigDecimal usdExchanged,
         BigDecimal arsReceived,
         BigDecimal cardPaymentsArs,
